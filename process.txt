@@ -1,0 +1,119 @@
+# Splitwise Clone Development Process Log
+
+## [2026-02-27 18:52] Project Initialization - COMPLETE
+- Created directory structure: `server/`, `client/`
+- Initialized Backend (Node.js/Express + TypeScript)
+- Initialized Frontend (Vite + React + TypeScript)
+- Configured `tsconfig.json` and basic dependencies.
+
+## [2026-02-27 18:54] Core Singletons Implementation - COMPLETE
+- Created `server/src` structure.
+- Implemented `ConfigManager` (Singleton) for strict environment fetching.
+- Implemented `Logger` (Singleton) for centralized logging.
+- Implemented `DatabaseManager` (Singleton) for PostgreSQL pool management.
+- Created `.env` with required variables.
+
+## [2026-02-27 18:56] Domain Logic & OOPS Patterns - COMPLETE
+- Implemented `BaseUser` and `BaseExpense` abstract classes.
+- Implemented `Strategy Pattern` for expense splitting (`Equal`, `Exact`, `Percent`).
+- Implemented `Factory Pattern` (`ExpenseFactory`) for expense creation.
+- Encapsulated password hashing within the `User` domain model.
+- Fixed ESM configuration in `package.json`.
+
+## [2026-02-27 18:59] Repository Layer & Authentication - COMPLETE
+- Implemented `IUserRepository` and `PostgresUserRepository`.
+- Implemented `IExpenseRepository` and `PostgresExpenseRepository`.
+- Decoupled domain models from DB operations using the Repository pattern.
+- Implemented `AuthService` for JWT generation and verification.
+- Implemented `AuthMiddleware` for route protection.
+- Fixed circular dependencies in `Expense.ts`.
+- Added `.js` extension to internal imports for ESM compatibility.
+
+## [2026-02-27 19:02] Backend Controllers & Routes - COMPLETE
+- Implemented `UserController`, `ExpenseController`, and `SettlementController`.
+- Implemented `SettlementContext` and `SettlementState` (State Pattern) for dual-key confirm.
+- Set up unified routing in `src/routes/api.ts` with manual dependency injection.
+- Connected API routes to the main Express app in `index.ts`.
+- Provided SQL schema in `db/schema.sql`.
+
+## [2026-02-27 19:05] Frontend Implementation - COMPLETE
+- Initialized Vite/React project with TypeScript.
+- Implemented `ApiService` Singleton for backend communication.
+- Implemented `Dashboard` with a premium dark-mode design system.
+- Implemented `ExpenseForm` with supports for OOPS split strategies.
+- Implemented `SettlementModal` for dual-key confirmation flow.
+- Configured modular CSS in `index.css`.
+
+## [2026-02-27 19:10] Final Polish & Verification - COMPLETE
+- Verified all OOPS patterns and domain logic.
+- Connected dashboard interactions to modals.
+- Completed final walkthrough and task list updates.
+- Project ready for deployment/local testing.
+
+## [2026-02-27 19:12] Frontend Execution - IN PROGRESS
+- Re-initialized client environment with `package.json`, `index.html`, and `vite.config.ts`.
+- Running `npm install && npm run dev` to start the frontend.
+- Fixed `App.css` import error in `App.tsx` (removed redundant import).
+
+## [2026-02-27 19:15] Mobile Login Support - COMPLETE
+- Updated `users` table schema to include `mobile_number`.
+- Enhanced `User` domain model with mobile number validation and logic.
+- Expanded `UserRepository` to support finding users by mobile number.
+- Updated `UserController` to handle email/mobile login and registration.
+- Created `LoginPage` component with dual authentication methods.
+- Updated `App.tsx` with authentication-based routing and logout logic.
+
+## [2026-02-27 19:20] OTP Service Implementation - COMPLETE
+- Implemented `OtpService` Singleton for backend OTP management.
+- Added `sendOtp` and `loginWithOtp` endpoints to `UserController`.
+- Updated `api.ts` routes to expose OTP functionality.
+- Enhanced `LoginPage` in React to include an OTP login option with a multi-step UI flow.
+- Mocked SMS delivery via logs for local development.
+
+## [2026-02-27 19:25] Error Verification & Code Polish - COMPLETE
+- Resolved lint errors in `UserController`, `OtpService`, and domain models.
+- Fixed type mismatches for `exactOptionalPropertyTypes` in `User` and `Expense` classes.
+- Updated `OtpService` to use the correct `Logger` method (`log`).
+- Verified all OOPS patterns are correctly implemented and type-safe.
+- Ensured consistency between frontend (mobile login) and backend (user domain).
+- Fixed remaining lint errors in `SplitStrategy.ts` using non-null assertions for array access after length validation.
+
+## [2026-02-27 19:30] Premium Login UI & Dual-Factor OTP - COMPLETE
+- Redesigned `LoginPage.tsx` with a premium glassmorphic theme, animations, and micro-interactions.
+- Updated `UserController.ts` to require **both** Email and Mobile Number for OTP verification.
+- Implemented a unified login flow supporting both Password and OTP for existing users.
+- Added aesthetic background gradients and decorative elements for a modern feel.
+- Enhanced UX with loading states and contextual validation messages.
+
+## [2026-02-27 19:38] Indian Mobile Code (+91) Support - COMPLETE
+- Updated `User.ts` domain validation to strictly enforce the `+91` prefix and 10-digit mobile number format.
+- Redesigned `LoginPage.tsx` mobile input to be a single unified field (removed separate +91 span) while maintaining internal `+91` pre-pending logic.
+- Implemented automatic pre-pending of `+91` in the frontend API service calls.
+- Updated `User` domain model validation regex.
+
+## [2026-02-27 19:45] Frontend Componentization & Refactoring - COMPLETE
+- Implemented **Atomic Design Patterns** by creating reusable UI primitives (`Button`, `Input`, `Card`).
+- Created standardized **Layout System** with `AuthLayout` and `Sidebar`.
+- Refactored `LoginPage.tsx` into specialized sub-components (`LoginForm`, `RegisterForm`, `OtpForm`, `AuthToggle`).
+- Refactored `Dashboard.tsx` into specialized feature components (`DashboardSummary`, `ExpenseList`).
+- Improved code maintainability by separating domain logic from structural UI.
+- Enhanced animations and transitions across all new components.
+
+## [2026-02-27 19:55] Real-time Data Integration - COMPLETE
+- Implemented `getExpenses` and `getBalances` in the backend.
+- Updated `ExpenseRepository` with SQL joins for rich transaction history.
+- Connected `ExpenseList` and `DashboardSummary` to live backend APIs.
+- Replaced all mock data with dynamic fetching and loading states.
+- Implemented automatic calculation of "You Owe" vs "You are Owed" balances.
+
+## [2026-02-27 22:35] Cloud Database Integration - COMPLETE
+- Migrated database from local PostgreSQL to **Supabase (Cloud)**.
+- Updated `.env` configuration for secure remote connection.
+- Verified connection string and database connectivity.
+- Applied project schema to the cloud instance.
+
+## [2026-02-27 22:50] Group Management - INITIAL BACKEND COMPLETE
+- Implemented `Group` domain model and `PostgresGroupRepository`.
+- Created `GroupController` for CRUD operations on groups.
+- Added `user_groups` many-to-many table to database schema.
+- Registered `/groups` endpoints in `api.ts`.

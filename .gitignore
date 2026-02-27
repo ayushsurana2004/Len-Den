@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+*/node_modules/
+/.pnp
+.pnp.js
+
+# Environment Variables (CRITICAL: Never commit these)
+.env
+.env.local
+.env.*.local
+client/.env
+server/.env
+
+# Build Outputs
+dist/
+build/
+client/dist/
+server/dist/
+dist-ssr/
+*.tsbuildinfo
+
+# System Files
+.DS_Store
+Thumbs.db
+._*
+.Spotlight-V100
+.Trashes
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# IDE Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Testing
+coverage/
+.nyc_output/
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+*.db3
