@@ -1,16 +1,18 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Card from '../../ui/Card';
-import { DollarSign, ChevronRight, Calendar, Tag } from 'lucide-react';
+import { IndianRupee, ChevronRight, Calendar, Tag } from 'lucide-react';
 import ApiService from '../../../services/ApiService';
 
 interface ExpenseListProps {
     groupId: number | null;
+    refreshTrigger?: number;
 }
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ groupId }) => {
+const ExpenseList: React.FC<ExpenseListProps> = ({ groupId, refreshTrigger }) => {
     const [expenses, setExpenses] = React.useState<any[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
+    const [filterType, setFilterType] = React.useState<'ALL' | 'PAID' | 'OWE'>('ALL');
 
     React.useEffect(() => {
         const fetchExpenses = async () => {
@@ -18,7 +20,8 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ groupId }) => {
             try {
                 const url = groupId ? `/expenses?groupId=${groupId}` : '/expenses';
                 const res = await ApiService.get(url);
-                setExpenses(res.data);
+                const data = res.data;
+                setExpenses(Array.isArray(data) ? data : (data?.expenses || []));
             } catch (err) {
                 console.error('Failed to fetch expenses');
             } finally {
@@ -26,7 +29,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ groupId }) => {
             }
         };
         fetchExpenses();
-    }, [groupId]);
+    }, [groupId, refreshTrigger]);
 
     if (isLoading) {
         return (
@@ -41,6 +44,24 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ groupId }) => {
         );
     }
 
+    const filteredExpenses = expenses.filter(expense => {
+        if (filterType === 'ALL') return true;
+        if (filterType === 'PAID') return expense.user_role === 'PAID';
+        if (filterType === 'OWE') return expense.user_role !== 'PAID';
+        return true;
+    });
+
+    const filterLabel = filterType === 'ALL' ? 'All' : filterType === 'PAID' ? 'You Paid' : 'You Owe';
+    const filterColor = filterType === 'ALL'
+        ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+        : filterType === 'PAID'
+            ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20'
+            : 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+
+    const cycleFilter = () => {
+        setFilterType(prev => prev === 'ALL' ? 'PAID' : prev === 'PAID' ? 'OWE' : 'ALL');
+    };
+
     return (
         <Card className="!p-0 border-white/5 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] bg-slate-900/20 backdrop-blur-3xl overflow-visible">
             <div className="p-8 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-emerald-500/[0.02] to-transparent rounded-t-[2rem]">
@@ -48,21 +69,30 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ groupId }) => {
                     <h3 className="font-black text-slate-100 uppercase tracking-[3px] text-[10px] mb-1">Transaction Stream</h3>
                     <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest opacity-60">History of shared economic energy</p>
                 </div>
-                <button className="text-[10px] font-black text-emerald-400 hover:text-emerald-300 transition-all uppercase tracking-[1px] px-4 py-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">Filter History</button>
+                <button
+                    onClick={cycleFilter}
+                    className={`text-[10px] font-black transition-all uppercase tracking-[1px] px-4 py-2 rounded-xl border ${filterColor}`}
+                >
+                    ● {filterLabel}
+                </button>
             </div>
 
             <div className="divide-y divide-white/5">
                 <AnimatePresence mode="popLayout">
-                    {expenses.length === 0 ? (
+                    {filteredExpenses.length === 0 ? (
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             className="p-20 text-center"
                         >
-                            <p className="text-[11px] text-slate-600 font-black uppercase tracking-[2px]">Void Detected: No Transactions Found</p>
+                            <p className="text-[11px] text-slate-600 font-black uppercase tracking-[2px]">
+                                {expenses.length > 0
+                                    ? `No transactions match filter: ${filterLabel}`
+                                    : 'Void Detected: No Transactions Found'}
+                            </p>
                         </motion.div>
                     ) : (
-                        expenses.map((expense, i) => (
+                        filteredExpenses.map((expense, i) => (
                             <motion.div
                                 key={expense.id}
                                 initial={{ opacity: 0, x: -10 }}
@@ -74,7 +104,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ groupId }) => {
 
                                 <div className="flex items-center gap-6 relative z-10">
                                     <div className="w-14 h-14 bg-slate-950/50 rounded-[1.25rem] flex items-center justify-center text-slate-500 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-all duration-500 border border-white/5 shadow-inner">
-                                        <DollarSign size={20} className="group-hover:scale-110 transition-transform" />
+                                        <IndianRupee size={20} className="group-hover:scale-110 transition-transform" />
                                     </div>
                                     <div className="space-y-1.5">
                                         <h4 className="font-black text-slate-100 group-hover:text-emerald-400 transition-colors tracking-tight text-lg">{expense.description}</h4>

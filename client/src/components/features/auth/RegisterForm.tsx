@@ -60,6 +60,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                     onChange={(e) => setName(e.target.value)}
                     leftIcon={<UserIcon size={18} />}
                     required
+                    data-testid="register-name"
                 />
             </motion.div>
 
@@ -76,6 +77,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                     onChange={(e) => setEmail(e.target.value)}
                     leftIcon={<Mail size={18} />}
                     required
+                    data-testid="register-email"
                 />
             </motion.div>
 
@@ -92,6 +94,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                     onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     leftIcon={<Phone size={18} />}
                     required
+                    data-testid="register-phone"
                 />
             </motion.div>
 
@@ -108,6 +111,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                     onChange={(e) => setPassword(e.target.value)}
                     leftIcon={<Lock size={18} />}
                     required
+                    data-testid="register-password"
                 />
             </motion.div>
 

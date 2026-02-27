@@ -29,6 +29,8 @@ const authMiddleware = new AuthMiddleware(authService);
 router.post('/register', userController.register);
 router.post('/login', userController.login);
 router.get('/users/search', authMiddleware.handle, userController.searchUser);
+router.get('/friends', authMiddleware.handle, userController.getFriends);
+router.post('/friends/invite', authMiddleware.handle, userController.inviteFriend);
 
 // Protected Routes
 router.get('/expenses', authMiddleware.handle, expenseController.getExpenses);
@@ -36,6 +38,7 @@ router.post('/expenses', authMiddleware.handle, expenseController.addExpense);
 router.get('/balances', authMiddleware.handle, settlementController.getBalances);
 router.post('/settlements/initiate', authMiddleware.handle, settlementController.initiate);
 router.post('/settlements/confirm', authMiddleware.handle, settlementController.confirm);
+router.get('/settlements/simplify', authMiddleware.handle, settlementController.getSimplifiedDebts);
 
 // Group Routes
 router.post('/groups', authMiddleware.handle, groupController.createGroup);

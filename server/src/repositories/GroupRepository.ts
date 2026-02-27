@@ -1,5 +1,6 @@
 import { Group } from '../domain/Group.js';
 import { DatabaseManager } from '../database/DatabaseManager.js';
+import crypto from 'crypto';
 
 export interface IGroupRepository {
     create(name: string, createdById: number): Promise<Group>;
@@ -33,9 +34,10 @@ export class PostgresGroupRepository implements IGroupRepository {
     }
 
     async addMember(groupId: number, userId: number): Promise<void> {
+        const settlementKey = crypto.randomBytes(3).toString('hex');
         await this.db.query(
-            'INSERT INTO user_groups (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-            [groupId, userId]
+            'INSERT INTO user_groups (group_id, user_id, settlement_key) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+            [groupId, userId, settlementKey]
         );
     }
 
@@ -58,7 +60,7 @@ export class PostgresGroupRepository implements IGroupRepository {
 
     async getMembers(groupId: number): Promise<any[]> {
         const result = await this.db.query(
-            `SELECT u.id, u.name, u.email, u.mobile_number 
+            `SELECT u.id, u.name, u.email, u.mobile_number, ug.settlement_key 
              FROM users u
              JOIN user_groups ug ON u.id = ug.user_id
              WHERE ug.group_id = $1`,

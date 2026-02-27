@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, ShieldCheck, Info } from 'lucide-react';
 import Button from './ui/Button';
@@ -31,7 +32,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ onClose, onSuccess 
         }
     };
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
             <motion.div
                 initial={{ opacity: 0 }}
@@ -92,6 +93,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ onClose, onSuccess 
                                 onChange={(e) => setName(e.target.value)}
                                 required
                                 autoFocus
+                                data-testid="group-name-input"
                             />
                         </div>
 
@@ -108,7 +110,8 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ onClose, onSuccess 
                     </form>
                 </Card>
             </motion.div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

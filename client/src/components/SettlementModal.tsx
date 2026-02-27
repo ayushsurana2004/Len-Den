@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Key, ShieldCheck, Wallet, ArrowRight, Info, Copy } from 'lucide-react';
+import { X, ShieldCheck, Wallet, Info, Key } from 'lucide-react';
 import ApiService from '../services/ApiService';
 import Button from './ui/Button';
 import Card from './ui/Card';
@@ -8,48 +8,104 @@ import Input from './ui/Input';
 
 interface SettlementModalProps {
     onClose: () => void;
+    groupId?: number;
 }
 
-const SettlementModal: React.FC<SettlementModalProps> = ({ onClose }) => {
-    const [step, setStep] = useState<'initiate' | 'confirm'>('initiate');
+const SettlementModal: React.FC<SettlementModalProps> = ({ onClose, groupId }) => {
     const [amount, setAmount] = useState('');
     const [payeeId, setPayeeId] = useState('');
-    const [settlementId, setSettlementId] = useState('');
-    const [key, setKey] = useState('');
-    const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+    const [settlementKey, setSettlementKey] = useState('');
+    const [members, setMembers] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [success, setSuccess] = useState(false);
     const [error, setError] = useState('');
 
-    const handleInitiate = async (e: React.FormEvent) => {
+    React.useEffect(() => {
+        const fetchMembers = async () => {
+            try {
+                const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                const currentUserId = currentUser.id;
+
+                // Always fetch friends (has balance data)
+                const friendsRes = await ApiService.get('/friends');
+                const friendsMap = new Map<number, number>();
+                friendsRes.data.forEach((f: any) => friendsMap.set(f.id, f.balance || 0));
+
+                if (groupId) {
+                    const res = await ApiService.get(`/groups/${groupId}/members`);
+                    setMembers(res.data
+                        .filter((m: any) => Number(m.id) !== Number(currentUserId))
+                        .map((m: any) => ({ ...m, balance: friendsMap.get(m.id) || 0 }))
+                        .filter((m: any) => m.balance < 0)
+                    );
+                } else {
+                    setMembers(friendsRes.data
+                        .filter((f: any) => Number(f.id) !== Number(currentUserId))
+                        .map((f: any) => ({ id: f.id, name: f.name, mobile_number: f.mobileNumber, balance: f.balance || 0 }))
+                        .filter((f: any) => f.balance < 0)
+                    );
+                }
+            } catch (err) {
+                console.error('Failed to fetch members');
+            }
+        };
+        fetchMembers();
+    }, [groupId]);
+
+    const selectedMember = members.find(m => String(m.id) === payeeId);
+    const maxAmount = selectedMember ? Math.abs(selectedMember.balance) : 0;
+
+    const handleSettle = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!payeeId || !amount) {
+            setError('Please select a payee and enter an amount.');
+            return;
+        }
+
+        const numAmount = parseFloat(amount);
+        if (numAmount <= 0) {
+            setError('Amount must be greater than zero.');
+            return;
+        }
+        if (numAmount > maxAmount) {
+            setError(`Amount cannot exceed ₹${maxAmount.toFixed(2)} (total owed).`);
+            return;
+        }
+        if (!settlementKey.trim()) {
+            setError('Please enter the payee\'s settlement key.');
+            return;
+        }
+
         setError('');
         setIsLoading(true);
         try {
-            const res = await ApiService.post('/settlements/initiate', {
+            // Step A: Initiate
+            const initiateRes = await ApiService.post('/settlements/initiate', {
                 payeeId: parseInt(payeeId),
                 amount: parseFloat(amount)
             });
-            setGeneratedKey(res.data.key);
-            // In a real scenario, we might show a success state before moving
-        } catch (error: any) {
-            setError(error.response?.data?.message || 'Failed to initiate settlement');
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
-    const handleConfirm = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setIsLoading(true);
-        try {
-            await ApiService.post('/settlements/confirm', {
+            const settlementId = initiateRes.data.id;
+
+            if (!settlementId) {
+                throw new Error("Backend did not return a settlement ID.");
+            }
+
+            // Step B: Confirm with the user-provided settlement key
+            const confirmRes = await ApiService.post('/settlements/confirm', {
                 settlementId: parseInt(settlementId),
-                key
+                key: settlementKey.trim()
             });
-            onClose();
-        } catch (errorBy: any) {
-            setError(errorBy.response?.data?.message || 'Invalid key or settlement ID');
+
+            // Capture rotated key if present (we don't show it but could log for debug or future use)
+            // const rotatedKey = confirmRes.data.newKey;
+
+            setSuccess(true);
+            setTimeout(() => {
+                onClose();
+            }, 2000);
+        } catch (error: any) {
+            setError(error.response?.data?.message || error.message || 'Failed to process settlement');
         } finally {
             setIsLoading(false);
         }
@@ -80,7 +136,7 @@ const SettlementModal: React.FC<SettlementModalProps> = ({ onClose }) => {
                             </div>
                             <div>
                                 <h2 className="text-2xl font-black text-white tracking-tighter">
-                                    {step === 'initiate' ? 'Finance Transfer' : 'Confirm Energy'}
+                                    Finance Transfer
                                 </h2>
                                 <p className="text-[10px] text-emerald-500/70 font-black uppercase tracking-[2px]">Secure Settlement Grid</p>
                             </div>
@@ -109,109 +165,122 @@ const SettlementModal: React.FC<SettlementModalProps> = ({ onClose }) => {
                                 </motion.div>
                             )}
 
-                            {step === 'initiate' ? (
+                            {success ? (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="p-12 text-center"
+                                >
+                                    <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-500/20">
+                                        <ShieldCheck size={40} className="text-emerald-500" />
+                                    </div>
+                                    <h3 className="text-2xl font-black text-white mb-2">Transfer Cleared</h3>
+                                    <p className="text-slate-400 font-bold">Your transaction has been verified on the ledger.</p>
+                                    <div className="mt-8 text-emerald-500 font-black text-xs uppercase tracking-widest animate-pulse">
+                                        Closing terminal...
+                                    </div>
+                                </motion.div>
+                            ) : (
                                 <motion.form
-                                    key="init"
+                                    key="settle"
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: 20 }}
-                                    onSubmit={handleInitiate}
+                                    onSubmit={handleSettle}
                                     className="space-y-6"
                                 >
-                                    <Input
-                                        label="Payee Protocol ID"
-                                        type="number"
-                                        placeholder="Target member ID"
-                                        value={payeeId}
-                                        onChange={(e) => setPayeeId(e.target.value)}
-                                        required
-                                    />
-                                    <Input
-                                        label="Settlement Amount (₹)"
-                                        type="number"
-                                        placeholder="0.00"
-                                        value={amount}
-                                        onChange={(e) => setAmount(e.target.value)}
-                                        required
-                                    />
-
-                                    <AnimatePresence>
-                                        {generatedKey && (
-                                            <motion.div
-                                                initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-3xl relative overflow-hidden group"
-                                            >
-                                                <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-100 transition-opacity">
-                                                    <Copy size={16} className="text-emerald-400 cursor-pointer" />
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[3px] ml-1 opacity-60">Who are you paying?</label>
+                                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                                            {members.length === 0 ? (
+                                                <div className="text-center py-6 text-slate-600 text-[10px] font-black uppercase tracking-widest">
+                                                    You don't owe anyone right now! 🎉
                                                 </div>
-                                                <p className="text-[9px] text-emerald-500/60 uppercase font-black tracking-[3px] mb-3">Authentication Key Generated</p>
-                                                <p className="text-3xl font-mono text-emerald-400 tracking-[0.2em] font-black">{generatedKey}</p>
-                                                <p className="text-[9px] text-slate-500 mt-4 leading-relaxed font-bold uppercase tracking-widest">Transmit this secure code to the payee to finalize transfer.</p>
-                                            </motion.div>
+                                            ) : (
+                                                members.map(m => (
+                                                    <motion.button
+                                                        key={m.id}
+                                                        type="button"
+                                                        whileHover={{ scale: 1.02 }}
+                                                        whileTap={{ scale: 0.98 }}
+                                                        onClick={() => setPayeeId(String(m.id))}
+                                                        className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 text-left ${payeeId === String(m.id)
+                                                            ? 'bg-emerald-500/10 border-emerald-500/30 shadow-lg shadow-emerald-500/10'
+                                                            : 'bg-slate-950/30 border-white/5 hover:bg-white/5 hover:border-white/10'
+                                                            }`}
+                                                    >
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shrink-0 transition-all duration-300 ${payeeId === String(m.id)
+                                                            ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30'
+                                                            : 'bg-slate-800 text-slate-500'
+                                                            }`}>
+                                                            {m.name?.substring(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className={`font-bold text-sm truncate transition-colors ${payeeId === String(m.id) ? 'text-emerald-400' : 'text-slate-300'
+                                                                }`}>{m.name}</p>
+                                                            <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest truncate">{m.mobile_number}</p>
+                                                        </div>
+                                                        <div className="text-right shrink-0">
+                                                            <p className="text-rose-400 text-xs font-black">₹{Math.abs(m.balance).toFixed(2)}</p>
+                                                        </div>
+                                                        {payeeId === String(m.id) && (
+                                                            <motion.div
+                                                                initial={{ scale: 0 }}
+                                                                animate={{ scale: 1 }}
+                                                                className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0"
+                                                            >
+                                                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                                            </motion.div>
+                                                        )}
+                                                    </motion.button>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Input
+                                            label={`Settlement Amount (₹)${maxAmount > 0 ? ` — Max: ₹${maxAmount.toFixed(2)}` : ''}`}
+                                            type="number"
+                                            placeholder="0.00"
+                                            value={amount}
+                                            onChange={(e) => setAmount(e.target.value)}
+                                            data-testid="settlement-amount-input"
+                                            max={maxAmount}
+                                            step="0.01"
+                                            required
+                                        />
+                                        {payeeId && maxAmount > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setAmount(maxAmount.toFixed(2))}
+                                                className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest hover:text-emerald-400 transition-colors ml-1"
+                                            >
+                                                ↑ Settle full amount (₹{maxAmount.toFixed(2)})
+                                            </button>
                                         )}
-                                    </AnimatePresence>
+                                    </div>
+
+                                    {payeeId && (
+                                        <Input
+                                            label="Payee's Settlement Key"
+                                            placeholder="e.g. a239d3"
+                                            value={settlementKey}
+                                            onChange={(e) => setSettlementKey(e.target.value)}
+                                            required
+                                            leftIcon={<Key size={18} className="text-amber-400" />}
+                                        />
+                                    )}
 
                                     <div className="pt-4 flex flex-col gap-4">
                                         <Button
                                             type="submit"
                                             className="w-full h-16 !rounded-2xl shadow-xl shadow-emerald-500/20"
                                             isLoading={isLoading}
-                                            leftIcon={<Key size={20} />}
+                                            leftIcon={<Wallet size={20} />}
                                         >
-                                            Lock Strategy Key
+                                            {isLoading ? 'Processing Payment...' : 'Settle Up Now'}
                                         </Button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setStep('confirm')}
-                                            className="text-[10px] text-slate-600 font-black uppercase tracking-[2px] transition-colors hover:text-emerald-500 text-center"
-                                        >
-                                            Execute confirmation grid instead
-                                        </button>
-                                    </div>
-                                </motion.form>
-                            ) : (
-                                <motion.form
-                                    key="confirm"
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: 20 }}
-                                    onSubmit={handleConfirm}
-                                    className="space-y-6"
-                                >
-                                    <Input
-                                        label="Transmission ID"
-                                        type="number"
-                                        placeholder="Enter Settlement ID"
-                                        value={settlementId}
-                                        onChange={(e) => setSettlementId(e.target.value)}
-                                        required
-                                    />
-                                    <Input
-                                        label="Strategy Key"
-                                        type="text"
-                                        placeholder="XXXX-XXXX"
-                                        value={key}
-                                        onChange={(e) => setKey(e.target.value)}
-                                        required
-                                        className="font-mono tracking-widest text-center text-xl uppercase"
-                                    />
-                                    <div className="pt-4 flex flex-col gap-4">
-                                        <Button
-                                            type="submit"
-                                            className="w-full h-16 !rounded-2xl shadow-xl shadow-cyan-500/20 !bg-cyan-500"
-                                            isLoading={isLoading}
-                                            leftIcon={<ShieldCheck size={20} />}
-                                        >
-                                            Verify & Absorb Energy
-                                        </Button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setStep('initiate')}
-                                            className="text-[10px] text-slate-600 font-black uppercase tracking-[2px] transition-colors hover:text-emerald-500 text-center"
-                                        >
-                                            Return to initiation phase
-                                        </button>
                                     </div>
                                 </motion.form>
                             )}

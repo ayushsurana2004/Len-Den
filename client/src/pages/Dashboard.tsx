@@ -18,6 +18,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+    const [sidebarRefresh, setSidebarRefresh] = useState(0);
 
     return (
         <div className="flex h-screen bg-[#020617] text-slate-100 overflow-hidden font-sans selection:bg-emerald-500/30">
@@ -52,6 +53,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 onGroupSelect={setSelectedGroupId}
                 onCreateGroup={() => setShowCreateGroupModal(true)}
                 onInviteMember={() => setShowAddMemberModal(true)}
+                refreshTrigger={sidebarRefresh}
             />
 
             <main className="flex-1 overflow-y-auto custom-scrollbar relative px-8 py-12 md:px-16 md:py-16">
@@ -79,10 +81,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             <AnimatePresence>
                 {showExpenseForm && (
                     <ExpenseForm
+                        initialGroupId={selectedGroupId || undefined}
                         onClose={() => setShowExpenseForm(false)}
                         onSuccess={() => {
                             setShowExpenseForm(false);
-                            window.location.reload();
+                            // We might also want to trigger an expense list refresh here, but sticking to group refresh for now
+                            setSidebarRefresh(prev => prev + 1);
                         }}
                     />
                 )}
@@ -100,7 +104,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                         onClose={() => setShowCreateGroupModal(false)}
                         onSuccess={() => {
                             setShowCreateGroupModal(false);
-                            window.location.reload();
+                            setSidebarRefresh(prev => prev + 1);
                         }}
                     />
                 )}

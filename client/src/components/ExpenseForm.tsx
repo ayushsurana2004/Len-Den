@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, DollarSign, ShieldCheck, Tag, Info } from 'lucide-react';
+import { X, IndianRupee, ShieldCheck, Tag, Info, Users, Check } from 'lucide-react';
 import ApiService from '../services/ApiService';
 import Button from './ui/Button';
 import Card from './ui/Card';
@@ -9,14 +9,23 @@ import Input from './ui/Input';
 interface ExpenseFormProps {
     onClose: () => void;
     onSuccess: () => void;
+    initialGroupId?: number;
 }
 
-const ExpenseForm: React.FC<ExpenseFormProps> = ({ onClose, onSuccess }) => {
+interface Member {
+    id: number;
+    name: string;
+    selected: boolean;
+    customAmount: string;
+}
+
+const ExpenseForm: React.FC<ExpenseFormProps> = ({ onClose, onSuccess, initialGroupId }) => {
     const [description, setDescription] = useState('');
     const [amount, setAmount] = useState('');
     const [splitType, setSplitType] = useState('EQUAL');
-    const [groupId, setGroupId] = useState<string>('');
+    const [groupId, setGroupId] = useState<string>(initialGroupId ? initialGroupId.toString() : '');
     const [groups, setGroups] = useState<any[]>([]);
+    const [members, setMembers] = useState<Member[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -32,19 +41,96 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onClose, onSuccess }) => {
         fetchGroups();
     }, []);
 
+    // Fetch members when group changes
+    useEffect(() => {
+        const fetchMembers = async () => {
+            if (!groupId) {
+                setMembers([]);
+                return;
+            }
+            try {
+                const res = await ApiService.get(`/groups/${groupId}/members`);
+                setMembers(res.data.map((m: any) => ({
+                    id: m.id,
+                    name: m.name,
+                    selected: true,
+                    customAmount: ''
+                })));
+            } catch (err) {
+                console.error('Failed to fetch members');
+            }
+        };
+        fetchMembers();
+    }, [groupId]);
+
+    const selectedMembers = members.filter(m => m.selected);
+    const totalAmount = parseFloat(amount) || 0;
+
+    // Calculate what each person's equal share would be
+    const equalShare = selectedMembers.length > 0
+        ? (totalAmount / selectedMembers.length).toFixed(2)
+        : '0.00';
+
+    // Sum of custom amounts for validation
+    const customAmountsSum = selectedMembers.reduce(
+        (sum, m) => sum + (parseFloat(m.customAmount) || 0), 0
+    );
+
+    const toggleMember = (id: number) => {
+        setMembers(prev => prev.map(m =>
+            m.id === id ? { ...m, selected: !m.selected } : m
+        ));
+    };
+
+    const updateCustomAmount = (id: number, val: string) => {
+        setMembers(prev => prev.map(m =>
+            m.id === id ? { ...m, customAmount: val } : m
+        ));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        setIsLoading(true);
 
+        if (selectedMembers.length === 0) {
+            setError('Select at least one person to split with.');
+            return;
+        }
+
+        if (splitType === 'EXACT') {
+            const sum = parseFloat(customAmountsSum.toFixed(2));
+            if (sum !== totalAmount) {
+                setError(`Exact amounts must sum to ₹${totalAmount.toFixed(2)}. Current: ₹${sum.toFixed(2)}`);
+                return;
+            }
+        }
+
+        if (splitType === 'PERCENT') {
+            const pctSum = selectedMembers.reduce((s, m) => s + (parseFloat(m.customAmount) || 0), 0);
+            if (pctSum !== 100) {
+                setError(`Percentages must sum to 100%. Current: ${pctSum}%`);
+                return;
+            }
+        }
+
+        setIsLoading(true);
         try {
+            const userIds = selectedMembers.map(m => m.id);
+            let options: any = {};
+
+            if (splitType === 'EXACT') {
+                options.amounts = selectedMembers.map(m => parseFloat(m.customAmount) || 0);
+            } else if (splitType === 'PERCENT') {
+                options.percentages = selectedMembers.map(m => parseFloat(m.customAmount) || 0);
+            }
+
             await ApiService.post('/expenses', {
                 description,
-                amount: parseFloat(amount),
+                amount: totalAmount,
                 splitType,
                 groupId: groupId ? parseInt(groupId) : null,
-                userIds: [],
-                options: {}
+                userIds,
+                options
             });
             onSuccess();
         } catch (err: any) {
@@ -68,7 +154,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onClose, onSuccess }) => {
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative w-full max-w-xl z-10"
+                className="relative w-full max-w-xl z-10 max-h-[90vh] overflow-y-auto custom-scrollbar"
             >
                 <Card className="!p-0 border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] bg-slate-900/60 backdrop-blur-3xl overflow-hidden !rounded-[2.5rem] inner-glow relative">
                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none" />
@@ -115,6 +201,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onClose, onSuccess }) => {
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     required
+                                    data-testid="expense-desc-input"
                                 />
                             </div>
 
@@ -125,7 +212,8 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onClose, onSuccess }) => {
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
                                 required
-                                leftIcon={<DollarSign size={18} className="text-emerald-500" />}
+                                leftIcon={<IndianRupee size={18} className="text-emerald-500" />}
+                                data-testid="expense-amount-input"
                             />
 
                             <div className="space-y-4">
@@ -147,6 +235,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onClose, onSuccess }) => {
                                 </div>
                             </div>
 
+                            {/* Splitting Strategy */}
                             <div className="space-y-4 col-span-1 md:col-span-2">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-[3px] ml-1 opacity-60">Splitting Strategy</label>
                                 <div className="grid grid-cols-3 gap-4">
@@ -164,6 +253,89 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onClose, onSuccess }) => {
                                     ))}
                                 </div>
                             </div>
+
+                            {/* Member Selection */}
+                            {members.length > 0 && (
+                                <div className="space-y-3 col-span-1 md:col-span-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[3px] ml-1 opacity-60">
+                                            Split Between ({selectedMembers.length}/{members.length})
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const allSelected = members.every(m => m.selected);
+                                                setMembers(prev => prev.map(m => ({ ...m, selected: !allSelected })));
+                                            }}
+                                            className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest hover:text-emerald-400 transition-colors"
+                                        >
+                                            {members.every(m => m.selected) ? 'Deselect All' : 'Select All'}
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                        {members.map(member => (
+                                            <div
+                                                key={member.id}
+                                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 ${member.selected
+                                                    ? 'bg-emerald-500/5 border-emerald-500/20'
+                                                    : 'bg-slate-950/30 border-white/5 opacity-50'
+                                                    }`}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleMember(member.id)}
+                                                    className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-all ${member.selected
+                                                        ? 'bg-emerald-500 text-slate-950'
+                                                        : 'bg-slate-800 border border-white/10'
+                                                        }`}
+                                                >
+                                                    {member.selected && <Check size={14} strokeWidth={3} />}
+                                                </button>
+
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`text-sm font-bold truncate ${member.selected ? 'text-slate-200' : 'text-slate-500'}`}>
+                                                        {member.name}
+                                                    </p>
+                                                    {splitType === 'EQUAL' && member.selected && totalAmount > 0 && (
+                                                        <p className="text-[9px] text-emerald-500/60 font-bold">₹{equalShare} each</p>
+                                                    )}
+                                                </div>
+
+                                                {/* Custom amount input for EXACT/PERCENT */}
+                                                {member.selected && splitType !== 'EQUAL' && (
+                                                    <div className="w-28 shrink-0">
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            placeholder={splitType === 'PERCENT' ? '%' : '₹'}
+                                                            value={member.customAmount}
+                                                            onChange={(e) => updateCustomAmount(member.id, e.target.value)}
+                                                            className="w-full bg-slate-950/60 border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/30 text-center"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Validation hint for EXACT/PERCENT */}
+                                    {splitType === 'EXACT' && totalAmount > 0 && (
+                                        <p className={`text-[9px] font-black uppercase tracking-widest ml-1 ${parseFloat(customAmountsSum.toFixed(2)) === totalAmount ? 'text-emerald-500' : 'text-amber-400'
+                                            }`}>
+                                            Total: ₹{customAmountsSum.toFixed(2)} / ₹{totalAmount.toFixed(2)}
+                                            {parseFloat(customAmountsSum.toFixed(2)) === totalAmount && ' ✓'}
+                                        </p>
+                                    )}
+                                    {splitType === 'PERCENT' && (
+                                        <p className={`text-[9px] font-black uppercase tracking-widest ml-1 ${customAmountsSum === 100 ? 'text-emerald-500' : 'text-amber-400'
+                                            }`}>
+                                            Total: {customAmountsSum}% / 100%
+                                            {customAmountsSum === 100 && ' ✓'}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div className="pt-6">

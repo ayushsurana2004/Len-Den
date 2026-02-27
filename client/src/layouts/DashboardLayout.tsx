@@ -1,10 +1,16 @@
 import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../components/layout/Sidebar';
 import { motion } from 'framer-motion';
 
 const DashboardLayout: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const [refreshTrigger, setRefreshTrigger] = React.useState(0);
+
+    const handleRefresh = () => {
+        setRefreshTrigger(prev => prev + 1);
+    };
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -39,10 +45,10 @@ const DashboardLayout: React.FC = () => {
                 <div className="absolute inset-0 bg-[url('https://transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] mix-blend-overlay" />
             </div>
 
-            <Sidebar onLogout={handleLogout} />
+            <Sidebar onLogout={handleLogout} refreshTrigger={refreshTrigger} />
 
             <main className="flex-1 overflow-y-auto custom-scrollbar relative px-8 py-12 md:px-16 md:py-16">
-                <Outlet />
+                <Outlet context={{ refreshTrigger, handleRefresh }} />
             </main>
         </div>
     );

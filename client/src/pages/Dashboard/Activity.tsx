@@ -1,9 +1,69 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { TrendingUp, Filter, Calendar } from 'lucide-react';
-import ExpenseList from '../../components/features/dashboard/ExpenseList';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TrendingUp, Filter, Calendar, IndianRupee, ChevronRight, Tag } from 'lucide-react';
+import Card from '../../components/ui/Card';
+import ApiService from '../../services/ApiService';
+
+type FilterType = 'ALL' | 'PAID' | 'OWE';
+type SortOrder = 'NEWEST' | 'OLDEST';
 
 const Activity: React.FC = () => {
+    const [expenses, setExpenses] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [filterType, setFilterType] = useState<FilterType>('ALL');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('NEWEST');
+
+    useEffect(() => {
+        const fetchExpenses = async () => {
+            setIsLoading(true);
+            try {
+                const res = await ApiService.get('/expenses');
+                const data = res.data;
+                setExpenses(Array.isArray(data) ? data : (data?.expenses || []));
+            } catch (err) {
+                console.error('Failed to fetch expenses');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchExpenses();
+    }, []);
+
+    // Filter
+    const filtered = expenses.filter(expense => {
+        if (filterType === 'ALL') return true;
+        if (filterType === 'PAID') return expense.user_role === 'PAID';
+        if (filterType === 'OWE') return expense.user_role !== 'PAID';
+        return true;
+    });
+
+    // Sort
+    const sorted = [...filtered].sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return sortOrder === 'NEWEST' ? dateB - dateA : dateA - dateB;
+    });
+
+    // UI helpers
+    const cycleFilter = () => {
+        setFilterType(prev => prev === 'ALL' ? 'PAID' : prev === 'PAID' ? 'OWE' : 'ALL');
+    };
+
+    const toggleSort = () => {
+        setSortOrder(prev => prev === 'NEWEST' ? 'OLDEST' : 'NEWEST');
+    };
+
+    const filterLabel = filterType === 'ALL' ? 'All' : filterType === 'PAID' ? 'You Paid' : 'You Owe';
+    const filterColor = filterType === 'ALL'
+        ? 'text-slate-400 border-white/10 bg-white/5'
+        : filterType === 'PAID'
+            ? 'text-cyan-400 border-cyan-500/20 bg-cyan-500/10'
+            : 'text-rose-400 border-rose-500/20 bg-rose-500/10';
+
+    const sortColor = sortOrder === 'NEWEST'
+        ? 'text-slate-400 border-white/10 bg-white/5'
+        : 'text-amber-400 border-amber-500/20 bg-amber-500/10';
+
     return (
         <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -23,18 +83,106 @@ const Activity: React.FC = () => {
                 </div>
 
                 <div className="flex gap-3">
-                    <button className="h-12 px-6 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
-                        <Filter size={16} /> Filter
+                    <button
+                        onClick={cycleFilter}
+                        className={`h-12 px-6 rounded-xl border transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-widest hover:scale-105 ${filterColor}`}
+                    >
+                        <Filter size={16} /> {filterLabel}
                     </button>
-                    <button className="h-12 px-6 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
-                        <Calendar size={16} /> History
+                    <button
+                        onClick={toggleSort}
+                        className={`h-12 px-6 rounded-xl border transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-widest hover:scale-105 ${sortColor}`}
+                    >
+                        <Calendar size={16} /> {sortOrder === 'NEWEST' ? 'Newest First' : 'Oldest First'}
                     </button>
                 </div>
             </div>
 
             <div className="premium-card p-1">
                 <div className="bg-slate-950/40 rounded-[1.8rem] p-8">
-                    <ExpenseList groupId={null} />
+                    <Card className="!p-0 border-white/5 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] bg-slate-900/20 backdrop-blur-3xl overflow-visible">
+                        <div className="p-8 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-cyan-500/[0.02] to-transparent rounded-t-[2rem]">
+                            <div>
+                                <h3 className="font-black text-slate-100 uppercase tracking-[3px] text-[10px] mb-1">Global Transaction Stream</h3>
+                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest opacity-60">
+                                    {sorted.length} transaction{sorted.length !== 1 ? 's' : ''} • {filterLabel} • {sortOrder === 'NEWEST' ? 'Newest First' : 'Oldest First'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="divide-y divide-white/5">
+                            <AnimatePresence mode="popLayout">
+                                {isLoading ? (
+                                    <div className="p-20 text-center">
+                                        <motion.div
+                                            animate={{ rotate: 360 }}
+                                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                            className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-500 rounded-full mx-auto mb-6"
+                                        />
+                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[3px] animate-pulse">Syncing activity...</p>
+                                    </div>
+                                ) : sorted.length === 0 ? (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="p-20 text-center"
+                                    >
+                                        <p className="text-[11px] text-slate-600 font-black uppercase tracking-[2px]">
+                                            {expenses.length > 0
+                                                ? `No activity found for filter: ${filterLabel}`
+                                                : 'No activity yet. Create expenses to see your stream.'}
+                                        </p>
+                                    </motion.div>
+                                ) : (
+                                    sorted.map((expense, i) => (
+                                        <motion.div
+                                            key={expense.id}
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: i * 0.03 }}
+                                            className="p-8 flex items-center justify-between hover:bg-white/[0.02] transition-all cursor-pointer group relative overflow-hidden"
+                                        >
+                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-cyan-500 rounded-full scale-y-0 group-hover:scale-y-100 transition-transform duration-500 opacity-0 group-hover:opacity-100" />
+
+                                            <div className="flex items-center gap-6 relative z-10">
+                                                <div className="w-14 h-14 bg-slate-950/50 rounded-[1.25rem] flex items-center justify-center text-slate-500 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-all duration-500 border border-white/5 shadow-inner">
+                                                    <IndianRupee size={20} className="group-hover:scale-110 transition-transform" />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <h4 className="font-black text-slate-100 group-hover:text-cyan-400 transition-colors tracking-tight text-lg">{expense.description}</h4>
+                                                    <div className="flex items-center gap-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                                        <span className="flex items-center gap-1.5 bg-white/5 py-1 px-2 rounded-lg border border-white/5">
+                                                            <Tag size={12} className="text-cyan-500/50" />
+                                                            {expense.split_type}
+                                                        </span>
+                                                        <span className="flex items-center gap-1.5 bg-white/5 py-1 px-2 rounded-lg border border-white/5">
+                                                            <Calendar size={12} className="text-cyan-500/50" />
+                                                            {new Date(expense.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-10 relative z-10">
+                                                <div className="text-right space-y-1">
+                                                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-[2px] mb-1">Total: ₹{expense.amount}</p>
+                                                    <p className={`font-black italic tracking-tighter text-2xl ${expense.user_role === 'PAID' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                        ₹{expense.user_share}
+                                                    </p>
+                                                    <p className={`text-[10px] font-black uppercase tracking-widest ${expense.user_role === 'PAID' ? 'text-emerald-500/40' : 'text-rose-500/40'}`}>
+                                                        {expense.user_role === 'PAID' ? 'You Reclaimed' : 'Your Debt'}
+                                                    </p>
+                                                </div>
+                                                <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-slate-700 bg-white/5 border border-white/5 group-hover:text-cyan-400 group-hover:border-cyan-500/20 group-hover:bg-cyan-500/10 transition-all duration-500">
+                                                    <ChevronRight size={20} />
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    ))
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    </Card>
                 </div>
             </div>
         </motion.div>

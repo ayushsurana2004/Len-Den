@@ -10,23 +10,28 @@ interface DashboardSummaryProps {
     onAddExpense: () => void;
     onSettleUp: () => void;
     groupId: number | null;
+    refreshTrigger?: number;
 }
 
-const DashboardSummary: React.FC<DashboardSummaryProps> = ({ title = "Dashboard", onAddExpense, onSettleUp, groupId }) => {
+const DashboardSummary: React.FC<DashboardSummaryProps> = ({ title = "Dashboard", onAddExpense, onSettleUp, groupId, refreshTrigger }) => {
     const [summary, setSummary] = React.useState({ totalBalance: 0, youOwe: 0, youAreOwed: 0 });
+    const [isLoading, setIsLoading] = React.useState(true);
 
     React.useEffect(() => {
         const fetchBalances = async () => {
+            setIsLoading(true);
             try {
                 const url = groupId ? `/balances?groupId=${groupId}` : '/balances';
                 const res = await ApiService.get(url);
                 setSummary(res.data);
             } catch (err) {
                 console.error('Failed to fetch balances');
+            } finally {
+                setIsLoading(false);
             }
         };
         fetchBalances();
-    }, [groupId]);
+    }, [groupId, refreshTrigger]);
 
     const cards = [
         {
@@ -99,31 +104,51 @@ const DashboardSummary: React.FC<DashboardSummaryProps> = ({ title = "Dashboard"
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {cards.map((card, i) => (
-                    <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 + i * 0.1 }}
-                    >
-                        <Card className="relative group !p-8 h-full">
-                            <div className={`absolute top-0 right-0 w-32 h-32 ${card.bg} blur-[60px] rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700`} />
+                {isLoading ? (
+                    [0, 1, 2].map(i => (
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 + i * 0.05 }}
+                        >
+                            <Card className="relative !p-8 h-full">
+                                <div className="flex flex-col gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-slate-800 animate-pulse" />
+                                    <div className="w-24 h-3 rounded-full bg-slate-800 animate-pulse" />
+                                    <div className="w-40 h-10 rounded-xl bg-slate-800/60 animate-pulse" />
+                                    <div className="w-32 h-2 rounded-full bg-slate-800/40 animate-pulse mt-4" />
+                                </div>
+                            </Card>
+                        </motion.div>
+                    ))
+                ) : (
+                    cards.map((card, i) => (
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 + i * 0.1 }}
+                        >
+                            <Card className="relative group !p-8 h-full">
+                                <div className={`absolute top-0 right-0 w-32 h-32 ${card.bg} blur-[60px] rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700`} />
 
-                            <div className="flex flex-col h-full relative z-10">
-                                <div className="p-3 bg-white/5 w-fit rounded-2xl mb-6 border border-white/5">
-                                    {card.icon}
+                                <div className="flex flex-col h-full relative z-10">
+                                    <div className="p-3 bg-white/5 w-fit rounded-2xl mb-6 border border-white/5">
+                                        {card.icon}
+                                    </div>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[3px] mb-2">{card.title}</p>
+                                    <div className="flex items-baseline gap-2">
+                                        <h3 className={`text-4xl font-black tracking-tighter ${card.color}`}>
+                                            ₹ {Math.abs(card.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </h3>
+                                    </div>
+                                    <p className="mt-auto text-[10px] font-bold text-slate-600 uppercase tracking-widest pt-6 italic">{card.label}</p>
                                 </div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[3px] mb-2">{card.title}</p>
-                                <div className="flex items-baseline gap-2">
-                                    <h3 className={`text-4xl font-black tracking-tighter ${card.color}`}>
-                                        ₹ {Math.abs(card.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </h3>
-                                </div>
-                                <p className="mt-auto text-[10px] font-bold text-slate-600 uppercase tracking-widest pt-6 italic">{card.label}</p>
-                            </div>
-                        </Card>
-                    </motion.div>
-                ))}
+                            </Card>
+                        </motion.div>
+                    ))
+                )}
             </div>
         </div>
     );

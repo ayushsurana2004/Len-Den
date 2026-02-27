@@ -12,11 +12,16 @@ export class ExpenseController {
     public addExpense = async (req: Request, res: Response): Promise<void> => {
         try {
             let { description, amount, splitType, userIds, groupId, options } = req.body;
-            const payerId = (req as any).user.id;
+            const payerId = Number((req as any).user.id);
+            const numericGroupId = groupId ? Number(groupId) : undefined;
 
             // If userIds is empty but groupId is provided, fetch all group members
-            if ((!userIds || userIds.length === 0) && groupId) {
-                const members = await this.groupRepository.getMembers(parseInt(groupId as string));
+            if ((!userIds || userIds.length === 0) && numericGroupId) {
+                const members = await this.groupRepository.getMembers(numericGroupId);
+                if (members.length === 0) {
+                    res.status(400).json({ message: 'Cannot add expense to a group with no members.' });
+                    return;
+                }
                 userIds = members.map(m => m.id);
             }
 
@@ -30,7 +35,7 @@ export class ExpenseController {
                 description,
                 parseFloat(amount as string),
                 payerId,
-                groupId ? parseInt(groupId as string) : undefined
+                numericGroupId
             );
 
             const splits = expense.calculateSplits(userIds, options);

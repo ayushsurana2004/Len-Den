@@ -19,8 +19,8 @@ export class SettlementController {
         try {
             const { payeeId, amount } = req.body;
             const payerId = (req as any).user.id;
-            const key = await this.settlementService.initiateSettlement(payerId, payeeId, amount);
-            res.status(201).json({ message: 'Settlement initiated. Share this key with payee.', key });
+            const { id, key } = await this.settlementService.initiateSettlement(payerId, payeeId, amount);
+            res.status(201).json({ message: 'Settlement initiated.', id, key });
         } catch (error) {
             res.status(500).json({ message: 'Error initiating settlement', error: (error as Error).message });
         }
@@ -29,10 +29,27 @@ export class SettlementController {
     public confirm = async (req: Request, res: Response): Promise<void> => {
         try {
             const { settlementId, key } = req.body;
-            await this.settlementService.confirmSettlement(settlementId, key);
-            res.json({ message: 'Settlement confirmed and cleared.' });
+            const result = await this.settlementService.confirmSettlement(settlementId, key);
+            res.json({
+                message: 'Settlement confirmed and cleared.',
+                newKey: result.newKey
+            });
         } catch (error) {
             res.status(500).json({ message: 'Error confirming settlement', error: (error as Error).message });
+        }
+    };
+
+    public getSimplifiedDebts = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const groupId = parseInt(req.query.groupId as string);
+            if (!groupId) {
+                res.status(400).json({ message: 'groupId is required' });
+                return;
+            }
+            const debts = await this.settlementService.getSimplifiedDebts(groupId);
+            res.json(debts);
+        } catch (error) {
+            res.status(500).json({ message: 'Error simplifying debts', error: (error as Error).message });
         }
     };
 }

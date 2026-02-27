@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useOutletContext } from 'react-router-dom';
 import DashboardSummary from '../../components/features/dashboard/DashboardSummary';
 import ExpenseList from '../../components/features/dashboard/ExpenseList';
 import ExpenseForm from '../../components/ExpenseForm';
 import SettlementModal from '../../components/SettlementModal';
 
 const Overview: React.FC = () => {
+    const { refreshTrigger, handleRefresh } = useOutletContext<{ refreshTrigger: number, handleRefresh: () => void }>();
     const [showExpenseForm, setShowExpenseForm] = useState(false);
     const [showSettlementModal, setShowSettlementModal] = useState(false);
 
@@ -20,6 +22,7 @@ const Overview: React.FC = () => {
                 onAddExpense={() => setShowExpenseForm(true)}
                 onSettleUp={() => setShowSettlementModal(true)}
                 groupId={null}
+                refreshTrigger={refreshTrigger}
             />
 
             <div className="mt-16">
@@ -27,7 +30,7 @@ const Overview: React.FC = () => {
                     <h2 className="text-2xl font-black tracking-tighter text-white">Latest Transactions</h2>
                     <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent mx-8 opacity-50" />
                 </div>
-                <ExpenseList groupId={null} />
+                <ExpenseList groupId={null} refreshTrigger={refreshTrigger} />
             </div>
 
             <AnimatePresence>
@@ -36,7 +39,7 @@ const Overview: React.FC = () => {
                         onClose={() => setShowExpenseForm(false)}
                         onSuccess={() => {
                             setShowExpenseForm(false);
-                            window.location.reload();
+                            handleRefresh();
                         }}
                     />
                 )}
@@ -44,7 +47,12 @@ const Overview: React.FC = () => {
 
             <AnimatePresence>
                 {showSettlementModal && (
-                    <SettlementModal onClose={() => setShowSettlementModal(false)} />
+                    <SettlementModal
+                        onClose={() => {
+                            setShowSettlementModal(false);
+                            handleRefresh();
+                        }}
+                    />
                 )}
             </AnimatePresence>
         </motion.div>

@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Plus, ArrowLeft } from 'lucide-react';
 import DashboardSummary from '../../components/features/dashboard/DashboardSummary';
 import ExpenseList from '../../components/features/dashboard/ExpenseList';
 import ExpenseForm from '../../components/ExpenseForm';
 import SettlementModal from '../../components/SettlementModal';
+import SimplifiedDebts from '../../components/SimplifiedDebts';
 import ApiService from '../../services/ApiService';
 import Button from '../../components/ui/Button';
 
 const GroupDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
+    const { refreshTrigger, handleRefresh } = useOutletContext<{ refreshTrigger: number, handleRefresh: () => void }>();
     const [group, setGroup] = useState<any>(null);
     const [showExpenseForm, setShowExpenseForm] = useState(false);
     const [showSettlementModal, setShowSettlementModal] = useState(false);
@@ -44,21 +46,26 @@ const GroupDetail: React.FC = () => {
                 groupId={parseInt(id || '0')}
             />
 
-            <div className="mt-16">
+            <div className="mt-12">
+                <SimplifiedDebts groupId={parseInt(id || '0')} refreshTrigger={refreshTrigger} />
+            </div>
+
+            <div className="mt-12">
                 <div className="flex items-center justify-between mb-8">
                     <h2 className="text-2xl font-black tracking-tighter text-white">Group Ledger</h2>
                     <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent mx-8 opacity-50" />
                 </div>
-                <ExpenseList groupId={parseInt(id || '0')} />
+                <ExpenseList groupId={parseInt(id || '0')} refreshTrigger={refreshTrigger} />
             </div>
 
             <AnimatePresence>
                 {showExpenseForm && (
                     <ExpenseForm
+                        initialGroupId={parseInt(id || '0')}
                         onClose={() => setShowExpenseForm(false)}
                         onSuccess={() => {
                             setShowExpenseForm(false);
-                            window.location.reload();
+                            handleRefresh();
                         }}
                     />
                 )}
@@ -66,7 +73,13 @@ const GroupDetail: React.FC = () => {
 
             <AnimatePresence>
                 {showSettlementModal && (
-                    <SettlementModal onClose={() => setShowSettlementModal(false)} />
+                    <SettlementModal
+                        groupId={parseInt(id || '0')}
+                        onClose={() => {
+                            setShowSettlementModal(false);
+                            handleRefresh();
+                        }}
+                    />
                 )}
             </AnimatePresence>
         </motion.div>

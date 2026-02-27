@@ -47,5 +47,6 @@ CREATE TABLE settlements (
 CREATE TABLE user_groups (
     user_id INTEGER REFERENCES users(id),
     group_id INTEGER REFERENCES groups(id),
+    settlement_key VARCHAR(12),
     PRIMARY KEY (user_id, group_id)
 );

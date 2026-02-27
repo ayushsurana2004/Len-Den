@@ -136,4 +136,46 @@ export class UserController {
             res.status(500).json({ message: 'Error searching user', error: (error as Error).message });
         }
     };
+
+    public getFriends = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const userId = (req as any).user.id;
+            const friends = await this.userRepository.getFriends(userId);
+            res.json(friends);
+        } catch (error) {
+            res.status(500).json({ message: 'Error fetching friends', error: (error as Error).message });
+        }
+    };
+
+    public inviteFriend = async (req: Request, res: Response): Promise<void> => {
+        try {
+            let { query } = req.body;
+            if (!query || typeof query !== 'string') {
+                res.status(400).json({ message: 'Email or phone number is required' });
+                return;
+            }
+
+            let user: User | null = null;
+            if (query.includes('@')) {
+                user = await this.userRepository.findByEmail(query);
+            } else {
+                query = this.normalizeMobile(query);
+                user = await this.userRepository.findByMobile(query);
+            }
+
+            if (!user) {
+                res.status(404).json({ message: 'User not on Daily Udhari yet.' });
+                return;
+            }
+
+            res.json({
+                id: user.getId(),
+                name: user.getName(),
+                email: user.getEmail(),
+                mobileNumber: user.getMobileNumber()
+            });
+        } catch (error) {
+            res.status(500).json({ message: 'Error inviting friend', error: (error as Error).message });
+        }
+    };
 }
