@@ -17,7 +17,9 @@ app.use(express.json());
 
 // Routes
 app.use('/api', apiRouter);
-
+app.get('/', (req, res) => {
+    res.send(`Server is running on ${env.NODE_ENV} environment`);
+});
 app.get('/health', (req, res) => {
     res.json({
         status: 'OK',
