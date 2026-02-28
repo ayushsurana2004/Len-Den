@@ -1,3 +1,4 @@
+import "reflect-metadata"; // Required for TypeORM
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -9,14 +10,20 @@ const config = ConfigManager.getInstance();
 const logger = Logger.getInstance();
 const app = express();
 
-app.use((helmet as any)());
-app.use((cors as any)());
+// Middleware
+app.use(helmet());
+app.use(cors());
 app.use(express.json());
 
+// Routes
 app.use('/api', apiRouter);
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'OK' });
+    res.json({ 
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV 
+    });
 });
 
 // Error handling middleware
@@ -25,7 +32,14 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     res.status(500).json({ message: 'Internal Server Error' });
 });
 
-const PORT = config.get('PORT');
-app.listen(PORT, () => {
-    logger.log(`Server running on port ${PORT}`);
-});
+// --- VERCEL SPECIFIC LOGIC ---
+// Only start the standalone server if we are NOT on Vercel
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = config.get('PORT') || 5000;
+    app.listen(PORT, () => {
+        logger.log(`Server running locally on port ${PORT}`);
+    });
+}
+
+// Export the app for Vercel's serverless handler
+export default app;
