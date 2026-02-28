@@ -44,7 +44,7 @@ class ApiService {
 
     // Auth specific methods
     public async login(credentials: any) {
-        const response = await this.post('/api/login', credentials);
+        const response = await this.post('/login', credentials);
         if (response.data.token) {
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
