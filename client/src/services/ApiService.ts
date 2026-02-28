@@ -3,10 +3,12 @@ import axios, { AxiosInstance } from 'axios';
 class ApiService {
     private static instance: ApiService;
     private api: AxiosInstance;
-
+    
     private constructor() {
+        const baseUrl = import.meta.env.VITE_API_URL;
+
         this.api = axios.create({
-            baseURL: 'http://localhost:5050/api',
+            baseURL: baseUrl,
             headers: {
                 'Content-Type': 'application/json',
             },
